@@ -109,7 +109,7 @@ export default function QualityCommitment() {
                 innerClassName="will-change-transform"
               >
                 <Image
-                  src="/brand/woman-hero.png"
+                  src="/brand/woman-hero.jpg"
                   alt="A smiling woman presenting a bottle of Sansum purified drinking water"
                   width={1672}
                   height={941}
