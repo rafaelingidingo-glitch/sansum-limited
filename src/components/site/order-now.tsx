@@ -132,6 +132,8 @@ export default function OrderNow() {
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [preferredDate, setPreferredDate] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const nextId = useRef(2);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -199,10 +201,66 @@ export default function OrderNow() {
   }
 
   /* UI-only submit — nothing is sent anywhere; button is a visual element */
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  
+async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+
+  if (isSubmitting) return;
+
+  setIsSubmitting(true);
+  setSubmitted(false);
+  setSubmitError("");
+
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+
+  const payload = {
+    fullName: formData.get("fullName"),
+    phone: formData.get("phone"),
+    email: formData.get("email"),
+    address: formData.get("address"),
+    orderType,
+    preferredDate,
+    notes: formData.get("notes"),
+    items: items.map((item) => ({
+      size: item.size,
+      qty: Math.max(1, item.qty),
+    })),
+  };
+
+  try {
+    const response = await fetch("/api/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.error || "Oda haikutumwa. Tafadhali jaribu tena.",
+      );
+    }
+
     setSubmitted(true);
+    form.reset();
+    setItems([{ id: nextId.current++, size: "5L", qty: 1 }]);
+    setOrderType("delivery");
+    setPreferredDate("");
+  } catch (error) {
+    setSubmitError(
+      error instanceof Error
+        ? error.message
+        : "Imeshindikana kutuma oda. Tafadhali jaribu tena.",
+    );
+  } finally {
+    setIsSubmitting(false);
   }
+}
+
 
   const formattedDate = preferredDate
     ? new Date(`${preferredDate}T00:00:00`).toLocaleDateString("en-GB", {
@@ -534,17 +592,25 @@ export default function OrderNow() {
 
                 {/* ── Submit area ── */}
                 <div className="mt-8 border-t border-ice pt-6">
+                  {submitError && (
+                  <p role="alert" className="mt-4 text-sm text-red-600">
+                   {submitError}
+                     </p>
+                     )}
                   <button
-                    type="submit"
-                    className="btn-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-brand text-base font-semibold text-white shadow-sm focus-visible:outline-2 focus-visible:outline-brand"
+                     type="submit"
+                     disabled={isSubmitting}
+                     className="btn-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-brand text-base font-semibold text-white shadow-sm focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <ShoppingBag className="h-4 w-4" aria-hidden="true" />
-                    Submit Order
-                  </button>
+                              {isSubmitting ? "Sending Order..." : "Submit Order"}
+                 </button>
                   <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-sm text-slate-500">
                     <Phone className="h-3.5 w-3.5 shrink-0 text-brand" aria-hidden="true" />
+                   
                     Our team will contact you to confirm your order.
                   </p>
+                  
                   {submitted && (
                     <p
                       role="status"
@@ -555,8 +621,8 @@ export default function OrderNow() {
                         aria-hidden="true"
                       />
                       <span>
-                        Thank you! Online submission is being connected — to
-                        place your order today, call{" "}
+                        Thank you! Your order has been submitted successfully. Our team will contact you to confirm availability, delivery time and final price.
+                        
                         <a href={ORDER_TEL} className="contact-link font-semibold">
                           {CONTACT_PHONE_DISPLAY}
                         </a>{" "}
